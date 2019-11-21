@@ -5,12 +5,23 @@
 #define LIBPRIQUEUE_H_
 
 /**
+	Node to implement a linked list inside the priority queue
+*/
+typedef struct _Node {
+    void* data;
+    struct _Node* next;
+} Node;
+
+/**
   Priqueue Data Structure
 */
 typedef struct _priqueue_t
 {
-
+	size_t size;
+	Node* head;
+	int (*comparer)(const void*, const void*);
 } priqueue_t;
+
 
 
 void   priqueue_init     (priqueue_t *q, int(*comparer)(const void *, const void *));

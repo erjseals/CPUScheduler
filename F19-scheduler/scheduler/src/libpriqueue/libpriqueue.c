@@ -19,7 +19,9 @@
  */
 void priqueue_init(priqueue_t *q, int(*comparer)(const void *, const void *))
 {
-
+	q->size = 0;
+	q->head	= NULL;
+	q->comparer = comparer;
 }
 
 
@@ -32,6 +34,73 @@ void priqueue_init(priqueue_t *q, int(*comparer)(const void *, const void *))
  */
 int priqueue_offer(priqueue_t *q, void *ptr)
 {
+	//create a new node with the value to be inserted into the queueueueue
+	Node* newNode = malloc(sizeof(Node));
+	newNode->data = ptr;
+	newNode->next = NULL;
+
+	//Insert into the linked list
+
+	//Case 1:
+	//check if the list is empty
+	if(q->size == 0){
+		q->head = newNode;
+		q->size++;
+		return 0;
+	}
+
+	//Case 2:
+	//Find where this new node should go
+	//This means finding a Node with an inner value that has a lower priority
+	else{
+		//Case 2a:
+		//The linked list is not empty, however this new value has a higher Priority
+		//than everything else in the linked list
+
+		//comparer returns negative when the first argument is less than the second.
+		//So this if tests whether the new node has higher priority (smaller value)
+		//than the current head
+		if(q->comparer(newNode->data, q->head->data) < 0){
+			newNode->next = q->head;
+			q->head = newNode;
+			q->size++;
+			return 0;
+		}
+		//
+		//comparer returns 0 if the two arguments have the same priority.
+		//if this is the case right now, we need to put this at the end of the list
+		//of tasks with this priority.
+		//So, really, we just need to find the moment when this new value is absolutely
+		//greater than the value in the list
+		else{
+			//need some temp pointers
+			//if either of these are null, the for loop size will take care of those
+			//edge cases
+			Node* temp = q->head;
+			Node* tempNext = temp->next;
+			int i;
+			// we have size of the list
+			for(i = 0 ; i < q->size-1 ; i++){
+				if(q->comparer(newNode->data, tempNext->data) < 0){
+					temp->next = newNode;
+					newNode->next = tempNext;
+					q->size++;
+					return i+1;
+				}
+				else{
+					temp = tempNext;
+					tempNext = tempNext->next;
+				}
+			}
+			//if the entire for loop was executed, then this is going on the back
+			//also note, temp will point to the last element in the list
+			temp->next = newNode;
+			q->size++;
+			return q->size - 1;
+		}
+	}
+
+	//if this return gets called, an error occurred
 	return -1;
 }
 
@@ -46,7 +115,7 @@ int priqueue_offer(priqueue_t *q, void *ptr)
  */
 void *priqueue_peek(priqueue_t *q)
 {
-	return NULL;
+	return q->head->data;
 }
 
 
@@ -60,7 +129,17 @@ void *priqueue_peek(priqueue_t *q)
  */
 void *priqueue_poll(priqueue_t *q)
 {
-	return NULL;
+	if(q->size == 0){
+		return NULL;
+	}
+	else{
+		Node* temp = q->head->next;
+		void* ret = q->head->data;
+		free(q->head);
+		q->head = temp;
+		q->size--;
+		return ret;
+	}
 }
 
 
@@ -117,7 +196,7 @@ void *priqueue_remove_at(priqueue_t *q, int index)
  */
 int priqueue_size(priqueue_t *q)
 {
-	return 0;
+	return q->size;
 }
 
 
