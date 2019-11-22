@@ -154,7 +154,19 @@ void *priqueue_poll(priqueue_t *q)
  */
 void *priqueue_at(priqueue_t *q, int index)
 {
-	return NULL;
+	if(index > (q->size-1)){
+		return NULL;
+	}
+	if(index < 0){
+		return NULL;
+	}
+
+	Node* temp = q->head;
+	int i;
+	for(i = 0 ; i < index ; i++){
+		temp = temp->next;
+	}
+	return temp->data;
 }
 
 
@@ -169,7 +181,40 @@ void *priqueue_at(priqueue_t *q, int index)
  */
 int priqueue_remove(priqueue_t *q, void *ptr)
 {
-	return 0;
+	if(q->size < 1){
+		return 0;
+	}
+	Node* temp1 = q->head;
+	Node* temp2;
+
+	int ret = 0;
+
+	//need to worry about the head being the value
+	//and if that's the case, need to worry about the new head being the value.
+	while(temp1 != NULL && temp1->data == ptr){
+			q->head = temp1->next;
+			free(temp1);
+			q->size--;
+			ret++;
+			temp1 = q->head;
+	}
+
+	//Now we check the values in the rest of the list
+	temp2 = temp1->next;
+	while(temp2 != NULL){
+		if(temp2->data == ptr){
+			temp1->next = temp2->next;
+			free(temp2);
+			q->size--;
+			ret++;
+			temp2 = temp1->next;
+		}
+		else{
+			temp1 = temp2;
+			temp2 = temp2->next;
+		}
+	}
+	return ret;
 }
 
 
@@ -184,7 +229,33 @@ int priqueue_remove(priqueue_t *q, void *ptr)
  */
 void *priqueue_remove_at(priqueue_t *q, int index)
 {
-	return 0;
+	if(index > (q->size-1)){
+		return NULL;
+	}
+	if(index < 0){
+		return NULL;
+	}
+	Node* temp1 = q->head;
+	void* data;
+	if(index == 0){
+		q->head = temp1->next;
+		data = temp1->data;
+		free(temp1);
+		q->size--;
+		return data;
+	}
+	int i;
+	Node * temp2 = temp1->next;
+	for(i = 0 ; i < index - 1 ; i++){
+		temp1 = temp1->next;
+		temp2 = temp2->next;
+	}
+	temp1->next = temp2->next;
+	data = temp2->data;
+	free(temp2);
+	q->size--;
+
+	return data;
 }
 
 
