@@ -115,7 +115,12 @@ int priqueue_offer(priqueue_t *q, void *ptr)
  */
 void *priqueue_peek(priqueue_t *q)
 {
-	return q->head->data;
+	if(q->size == 0){
+		return NULL;
+	}
+	else{
+		return q->head->data;
+	}
 }
 
 
@@ -278,5 +283,11 @@ int priqueue_size(priqueue_t *q)
  */
 void priqueue_destroy(priqueue_t *q)
 {
-
+	Node* temp1 = q->head;
+	Node* temp2 = q->head;
+	while(temp1 != NULL){
+		temp1 = temp1->next;
+		free(temp2);
+		temp2 = temp1;
+	}
 }
