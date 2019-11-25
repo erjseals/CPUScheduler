@@ -1,5 +1,5 @@
 # Change this line before submission
-STUDENTLASTNAMES = Eric-Seals
+STUDENTLASTNAMES = Eric Seals
 PROGNAME = simulator
 
 CC = gcc --std=gnu11

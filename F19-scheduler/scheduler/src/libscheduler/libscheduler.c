@@ -37,7 +37,6 @@ int totalJobs;
 
 scheme_t currScheme;
 int numCores;
-int *coresArr;
 
 priqueue_t Queue;
 
@@ -69,6 +68,11 @@ int comparePriority(const void * a, const void * b)
 	}
 	return(sol);
 }
+int compareRR(const void * a, const void * b)
+{
+	//we don't want to compare, just put the value at the back of the queue;
+	return 0;
+}
 
 
 /**
@@ -89,12 +93,6 @@ void scheduler_start_up(int cores, scheme_t scheme)
 {
 	currScheme  = scheme;
 	numCores    = cores;
-	coresArr    = malloc(cores * sizeof(int));
-	int i;
-	for(i = 0 ; i < numCores ; i++)
-	{
-		coresArr[i]    = -1;
-	}
 
 	if(currScheme == PRI)
 		priqueue_init(&Queue, comparePriority);
@@ -104,6 +102,8 @@ void scheduler_start_up(int cores, scheme_t scheme)
 		priqueue_init(&Queue, compareBurst);
 	else if(currScheme == PSJF)
 		priqueue_init(&Queue, compareBurst);
+	else if(currScheme == RR)
+		priqueue_init(&Queue, compareRR);
 	else
 		priqueue_init(&Queue, compareArrival);
 
@@ -153,7 +153,7 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 
 	//if it's FCFS, the data field that should be compared within the queue
 	//is going to be the time (or arrival_time)
-	if(currScheme == FCFS || currScheme == PRI || currScheme == SJF)
+	if(currScheme == FCFS || currScheme == PRI || currScheme == SJF || currScheme == RR)
 	{
 		int i,j;
 		int size = priqueue_size(&Queue);
@@ -188,7 +188,7 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 	{
 		int currHighestPri = -1;
 		int indexOfHigh    = -1;
-		int arrival        = 0;
+		//int arrival        = 0;
 		int i,j;
 		int size           = priqueue_size(&Queue);
 		//loop through the cores and see if there is space
@@ -327,10 +327,6 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 		return -1;
 
 	}
-	else if(currScheme == RR)
-	{
-
-	}
 
 	return -1;
 }
@@ -368,8 +364,8 @@ int scheduler_job_finished(int core_id, int job_number, int time)
 	temp = priqueue_remove_at(&Queue, i);
 
 	//temp points the job that just finished, get some stats
-	avg_waiting_time    += temp->start_time - temp->arrival_time;
-	avg_response_time   += time - temp->running_time - temp->arrival_time;
+	avg_response_time   += temp->start_time - temp->arrival_time;
+	avg_waiting_time    += time - temp->running_time - temp->arrival_time;
 	avg_turnaround_time += time - temp->arrival_time;
 
 	//job finished, free the assets
@@ -412,6 +408,37 @@ int scheduler_job_finished(int core_id, int job_number, int time)
  */
 int scheduler_quantum_expired(int core_id, int time)
 {
+	//core_id has expired
+	//we take whatever value is in that core,
+	//push it to the back of the queue
+	//then cycle through the queue to find the first availabe value
+	int i;
+	int size = priqueue_size(&Queue);
+	for(i = 0 ; i < size ; i++)
+	{
+		job_t *temp = priqueue_at(&Queue, i);
+		if(temp->coreNum == core_id)
+		{
+			temp                  = priqueue_remove_at(&Queue, i);
+			int progressTime      = time - temp->last_start_time;
+			temp->remaining_time  = temp->remaining_time - progressTime;
+			temp->coreNum         = -1;
+			temp->last_start_time = -1;
+			priqueue_offer(&Queue, temp);
+			//done with this for loop
+			i = size;
+		}
+	}
+	for(i = 0 ; i < size ; i++)
+	{
+		job_t *temp = priqueue_at(&Queue, i);
+		if(temp->coreNum == -1)
+		{
+			temp->coreNum = core_id;
+			temp->last_start_time = time;
+			return temp->job_number;
+		}
+	}
 	return -1;
 }
 
@@ -467,7 +494,6 @@ float scheduler_average_response_time()
 void scheduler_clean_up()
 {
 	priqueue_destroy(&Queue);
-	free(coresArr);
 }
 
 
