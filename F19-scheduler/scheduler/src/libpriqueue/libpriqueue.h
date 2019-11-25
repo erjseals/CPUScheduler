@@ -17,7 +17,7 @@ typedef struct _Node {
 */
 typedef struct _priqueue_t
 {
-	size_t size;
+	int size;
 	Node* head;
 	int (*comparer)(const void*, const void*);
 } priqueue_t;

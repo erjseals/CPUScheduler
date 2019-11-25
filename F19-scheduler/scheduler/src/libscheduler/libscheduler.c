@@ -20,28 +20,54 @@
 typedef struct _job_t
 {
 	int job_number;
-	int time;
-	int running_time;
+	int arrival_time;
 	int priority;
 	int coreNum;
 	int start_time;
+	int running_time;
+	int remaining_time;
+	int last_start_time;
+
 } job_t;
 
-int avg_waiting_time;
-int avg_response_time;
-int avg_turnaround_time;
+float avg_waiting_time;
+float avg_response_time;
+float avg_turnaround_time;
 int totalJobs;
 
 scheme_t currScheme;
-int currCores;
+int numCores;
 int *coresArr;
 
 priqueue_t Queue;
 
-int compareFCFS(const void * a, const void * b)
+int compareArrival(const void * a, const void * b)
 {
 	const job_t *p = a, *q = b;
-	return ( p->time - q->time );
+	return(p->arrival_time - q->arrival_time);
+}
+int compareBurst(const void * a, const void * b)
+{
+	const job_t *p = a, *q = b;
+	int sol = p->remaining_time - q->remaining_time;
+	//if a tie, compare arrival times
+	if(sol == 0)
+	{
+		sol = p->arrival_time - q->arrival_time;
+	}
+
+	return(sol);
+}
+int comparePriority(const void * a, const void * b)
+{
+	const job_t *p = a, *q = b;
+	int sol = p->priority - q->priority;
+	//if a tie, compare arrival times
+	if(sol == 0)
+	{
+		sol = p->arrival_time - q->arrival_time;
+	}
+	return(sol);
 }
 
 
@@ -61,15 +87,30 @@ int compareFCFS(const void * a, const void * b)
 */
 void scheduler_start_up(int cores, scheme_t scheme)
 {
-	currScheme = scheme;
-	currCores  = cores;
-	coresArr   = malloc(cores * sizeof(int));
-	priqueue_init(&Queue, compareFCFS);
+	currScheme  = scheme;
+	numCores    = cores;
+	coresArr    = malloc(cores * sizeof(int));
+	int i;
+	for(i = 0 ; i < numCores ; i++)
+	{
+		coresArr[i]    = -1;
+	}
+
+	if(currScheme == PRI)
+		priqueue_init(&Queue, comparePriority);
+	else if(currScheme == PPRI)
+		priqueue_init(&Queue, comparePriority);
+	else if(currScheme == SJF)
+		priqueue_init(&Queue, compareBurst);
+	else if(currScheme == PSJF)
+		priqueue_init(&Queue, compareBurst);
+	else
+		priqueue_init(&Queue, compareArrival);
 
 	totalJobs           = 0;
-	avg_waiting_time    = 0;
-	avg_response_time   = 0;
-	avg_turnaround_time = 0;
+	avg_waiting_time    = 0.0;
+	avg_response_time   = 0.0;
+	avg_turnaround_time = 0.0;
 }
 
 
@@ -97,29 +138,198 @@ void scheduler_start_up(int cores, scheme_t scheme)
  */
 int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
-	job_t* newJob        = malloc(sizeof(job_t));
-	newJob->job_number   = job_number;
-	newJob->time         = time;
-	newJob->running_time = running_time;
-	newJob->priority     = priority;
-	newJob->coreNum      = -1;
+	job_t* newJob           = malloc(sizeof(job_t));
+	newJob->job_number      = job_number;
+	newJob->arrival_time    = time;
+	newJob->running_time    = running_time;
+	newJob->remaining_time  = running_time;
+	newJob->priority        = priority;
+	//-1 for idle
+	newJob->coreNum         = -1;
+	newJob->start_time      = -1;
+	newJob->last_start_time = -1;
+
+	totalJobs++;
 
 	//if it's FCFS, the data field that should be compared within the queue
-	//is going to be the time (or arrival time)
-	if(currScheme == FCFS){
+	//is going to be the time (or arrival_time)
+	if(currScheme == FCFS || currScheme == PRI || currScheme == SJF)
+	{
+		int i,j;
+		int size = priqueue_size(&Queue);
+		//loop through the cores and see if there is space
+		for(i = 0 ; i < numCores ; i++)
+		{
+			int coreInUse = 0;
+			for(j = 0 ; j < size ; j++)
+			{
+				job_t *temp = priqueue_at(&Queue, j);
+				if(temp->coreNum == i)
+				{
+					coreInUse = 1;
+					j = size;
+				}
+			}
+			//core not being used, put new job on it
+			if(coreInUse == 0)
+			{
+				newJob->coreNum         = i;
+				newJob->start_time      = time;
+				newJob->last_start_time = time;
+				priqueue_offer(&Queue, newJob);
+				return i;
+			}
+		}
+		//no availabe cores, put the node in the queue
 		priqueue_offer(&Queue, newJob);
-		totalJobs++;
+		return -1;
+	}
+	else if(currScheme == PPRI)
+	{
+		int currHighestPri = -1;
+		int indexOfHigh    = -1;
+		int arrival        = 0;
+		int i,j;
+		int size           = priqueue_size(&Queue);
+		//loop through the cores and see if there is space
+		for(i = 0 ; i < numCores ; i++)
+		{
+			int coreInUse = 0;
+			for(j = 0 ; j < size ; j++)
+			{
+				job_t *temp = priqueue_at(&Queue, j);
+				if(temp->coreNum == i)
+				{
+					if(temp->priority > currHighestPri)
+					{
+						currHighestPri = temp->priority;
+						indexOfHigh = j;
+					}
+					coreInUse = 1;
+					j = size;
+				}
+			}
+			//core not being used, put new job on it
+			if(coreInUse == 0)
+			{
+				newJob->coreNum         = i;
+				newJob->start_time      = time;
+				newJob->last_start_time = time;
+				priqueue_offer(&Queue, newJob);
+				return i;
+			}
+		}
+		//all the cores are occupied
+		//we stored the highest priority
 
-		job_t *temp = priqueue_peek(&Queue);
-		//if the Node just added is at the head, then we schedule
-		if(newJob == temp){
-			newJob->coreNum = 0;
-			newJob->start_time = time;
-			return 0;
+		job_t *temp = priqueue_at(&Queue, indexOfHigh);
+		if(temp->priority > newJob->priority)
+		{
+			temp                    = priqueue_remove_at(&Queue, indexOfHigh);
+			int progressTime        = time - temp->last_start_time;
+			temp->remaining_time    = temp->remaining_time - progressTime;
+			int coreIndex           = temp->coreNum;
+			temp->coreNum           = -1;
+			if(temp->start_time == time)
+			{
+				temp->start_time      = -1;
+			}
+			temp->last_start_time   = -1;
+			priqueue_offer(&Queue, temp);
+
+			newJob->coreNum         = coreIndex;
+			newJob->start_time      = time;
+			newJob->last_start_time = time;
+			priqueue_offer(&Queue, newJob);
+			return coreIndex;
 		}
-		else{
-			newJob->coreNum = -1;
+		// no cores available and the running jobs have higher priority
+		priqueue_offer(&Queue, newJob);
+		return -1;
+	}
+	else if(currScheme == PSJF)
+	{
+		int currLongest    = -1;
+		int indexOfLong    = -1;
+		int arrival        = 0;
+		int i,j;
+		int size           = priqueue_size(&Queue);
+		//loop through the cores and see if there is space
+		for(i = 0 ; i < numCores ; i++)
+		{
+			int coreInUse = 0;
+			for(j = 0 ; j < size ; j++)
+			{
+				job_t *temp = priqueue_at(&Queue, j);
+				if(temp->coreNum == i)
+				{
+					if(temp->remaining_time >= currLongest)
+					{
+						//need to check the arrival times
+						if(temp->remaining_time == currLongest)
+						{
+							if(temp->arrival_time > arrival)
+							{
+								arrival = temp->arrival_time;
+								currLongest = temp->remaining_time;
+								indexOfLong = j;
+							}
+						}
+						else
+						{
+							arrival = temp->arrival_time;
+							currLongest = temp->remaining_time;
+							indexOfLong = j;
+						}
+					}
+					coreInUse = 1;
+					j = size;
+				}
+			}
+			//core not being used, put new job on it
+			if(coreInUse == 0)
+			{
+				newJob->coreNum         = i;
+				newJob->start_time      = time;
+				newJob->last_start_time = time;
+				priqueue_offer(&Queue, newJob);
+				return i;
+			}
 		}
+		//all the cores are occupied
+		//we stored the highest priority
+
+		job_t *temp = priqueue_at(&Queue, indexOfLong);
+		if(temp->remaining_time > newJob->remaining_time)
+		{
+			printf("temp->remaining_time %d\n", temp->remaining_time);
+			printf("newJob->remaining_time %d\n", newJob->remaining_time);
+			temp                    = priqueue_remove_at(&Queue, indexOfLong);
+			int progressTime        = time - temp->last_start_time;
+			temp->remaining_time    = temp->remaining_time - progressTime;
+			int coreIndex           = temp->coreNum;
+			temp->coreNum           = -1;
+			if(temp->start_time == time)
+			{
+				temp->start_time      = -1;
+			}
+			temp->last_start_time   = -1;
+			priqueue_offer(&Queue, temp);
+
+			newJob->coreNum         = coreIndex;
+			newJob->start_time      = time;
+			newJob->last_start_time = time;
+			priqueue_offer(&Queue, newJob);
+			return coreIndex;
+		}
+		// no cores available and the running jobs have higher priority
+		priqueue_offer(&Queue, newJob);
+		return -1;
+
+	}
+	else if(currScheme == RR)
+	{
+
 	}
 
 	return -1;
@@ -143,17 +353,46 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
  */
 int scheduler_job_finished(int core_id, int job_number, int time)
 {
-
-	job_t *temp = priqueue_poll(&Queue);
-	//temp points the job that just bounced off
-	avg_waiting_time += temp->start_time - temp->time;
-	avg_response_time += time - temp->running_time - temp->time;
-	avg_turnaround_time += time - temp->time;
-
-	temp = priqueue_peek(&Queue);
-	if(temp != NULL){
-		return temp->job_number;
+	//find the job on the core
+	job_t *temp;
+	int i;
+	int size = priqueue_size(&Queue);
+	for( i = 0 ; i < size ; i++)
+	{
+		temp = priqueue_at(&Queue, i);
+		if(temp->coreNum == core_id)
+		{
+			break;
+		}
 	}
+	temp = priqueue_remove_at(&Queue, i);
+
+	//temp points the job that just finished, get some stats
+	avg_waiting_time    += temp->start_time - temp->arrival_time;
+	avg_response_time   += time - temp->running_time - temp->arrival_time;
+	avg_turnaround_time += time - temp->arrival_time;
+
+	//job finished, free the assets
+	free(temp);
+
+	//search the queue for non running jobs, put the highest 'priority' on a core
+	size = priqueue_size(&Queue);
+	for(i = 0 ; i < size ; i++)
+	{
+		temp = priqueue_at(&Queue, i);
+		//highest priority val to put on
+		if(temp->coreNum < 0)
+		{
+			if(temp->start_time < 0)
+			{
+				temp->start_time = time;
+			}
+			temp->coreNum = core_id;
+			temp->last_start_time = time;
+			return temp->job_number;
+		}
+	}
+	//else there's no idle jobs
 	return -1;
 }
 
@@ -228,6 +467,7 @@ float scheduler_average_response_time()
 void scheduler_clean_up()
 {
 	priqueue_destroy(&Queue);
+	free(coresArr);
 }
 
 
@@ -251,7 +491,8 @@ void scheduler_show_queue()
 {
 	int size = priqueue_size(&Queue);
 	int i;
-	for(i = 0 ; i < size ; i++){
+	for(i = 0 ; i < size ; i++)
+	{
 		job_t *temp = priqueue_at(&Queue, i);
 		printf("%d(%d) ", temp->job_number, temp->priority);
 	}

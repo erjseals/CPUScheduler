@@ -43,7 +43,8 @@ int priqueue_offer(priqueue_t *q, void *ptr)
 
 	//Case 1:
 	//check if the list is empty
-	if(q->size == 0){
+	if(q->size == 0)
+	{
 		q->head = newNode;
 		q->size++;
 		return 0;
@@ -52,7 +53,8 @@ int priqueue_offer(priqueue_t *q, void *ptr)
 	//Case 2:
 	//Find where this new node should go
 	//This means finding a Node with an inner value that has a lower priority
-	else{
+	else
+	{
 		//Case 2a:
 		//The linked list is not empty, however this new value has a higher Priority
 		//than everything else in the linked list
@@ -60,7 +62,8 @@ int priqueue_offer(priqueue_t *q, void *ptr)
 		//comparer returns negative when the first argument is less than the second.
 		//So this if tests whether the new node has higher priority (smaller value)
 		//than the current head
-		if(q->comparer(newNode->data, q->head->data) < 0){
+		if(q->comparer(newNode->data, q->head->data) < 0)
+		{
 			newNode->next = q->head;
 			q->head = newNode;
 			q->size++;
@@ -72,7 +75,8 @@ int priqueue_offer(priqueue_t *q, void *ptr)
 		//of tasks with this priority.
 		//So, really, we just need to find the moment when this new value is absolutely
 		//greater than the value in the list
-		else{
+		else
+		{
 			//need some temp pointers
 			//if either of these are null, the for loop size will take care of those
 			//edge cases
@@ -80,14 +84,17 @@ int priqueue_offer(priqueue_t *q, void *ptr)
 			Node* tempNext = temp->next;
 			int i;
 			// we have size of the list
-			for(i = 0 ; i < q->size-1 ; i++){
-				if(q->comparer(newNode->data, tempNext->data) < 0){
+			for(i = 0 ; i < q->size-1 ; i++)
+			{
+				if(q->comparer(newNode->data, tempNext->data) < 0)
+				{
 					temp->next = newNode;
 					newNode->next = tempNext;
 					q->size++;
 					return i+1;
 				}
-				else{
+				else
+				{
 					temp = tempNext;
 					tempNext = tempNext->next;
 				}
@@ -115,10 +122,12 @@ int priqueue_offer(priqueue_t *q, void *ptr)
  */
 void *priqueue_peek(priqueue_t *q)
 {
-	if(q->size == 0){
+	if(q->size == 0)
+	{
 		return NULL;
 	}
-	else{
+	else
+	{
 		return q->head->data;
 	}
 }
@@ -134,10 +143,12 @@ void *priqueue_peek(priqueue_t *q)
  */
 void *priqueue_poll(priqueue_t *q)
 {
-	if(q->size == 0){
+	if(q->size == 0)
+	{
 		return NULL;
 	}
-	else{
+	else
+	{
 		Node* temp = q->head->next;
 		void* ret = q->head->data;
 		free(q->head);
@@ -159,16 +170,19 @@ void *priqueue_poll(priqueue_t *q)
  */
 void *priqueue_at(priqueue_t *q, int index)
 {
-	if(index > (q->size-1)){
+	if(index > (q->size-1))
+	{
 		return NULL;
 	}
-	if(index < 0){
+	if(index < 0)
+	{
 		return NULL;
 	}
 
 	Node* temp = q->head;
 	int i;
-	for(i = 0 ; i < index ; i++){
+	for(i = 0 ; i < index ; i++)
+	{
 		temp = temp->next;
 	}
 	return temp->data;
@@ -186,7 +200,8 @@ void *priqueue_at(priqueue_t *q, int index)
  */
 int priqueue_remove(priqueue_t *q, void *ptr)
 {
-	if(q->size < 1){
+	if(q->size < 1)
+	{
 		return 0;
 	}
 	Node* temp1 = q->head;
@@ -196,7 +211,8 @@ int priqueue_remove(priqueue_t *q, void *ptr)
 
 	//need to worry about the head being the value
 	//and if that's the case, need to worry about the new head being the value.
-	while(temp1 != NULL && temp1->data == ptr){
+	while(temp1 != NULL && temp1->data == ptr)
+	{
 			q->head = temp1->next;
 			free(temp1);
 			q->size--;
@@ -206,15 +222,18 @@ int priqueue_remove(priqueue_t *q, void *ptr)
 
 	//Now we check the values in the rest of the list
 	temp2 = temp1->next;
-	while(temp2 != NULL){
-		if(temp2->data == ptr){
+	while(temp2 != NULL)
+	{
+		if(temp2->data == ptr)
+		{
 			temp1->next = temp2->next;
 			free(temp2);
 			q->size--;
 			ret++;
 			temp2 = temp1->next;
 		}
-		else{
+		else
+		{
 			temp1 = temp2;
 			temp2 = temp2->next;
 		}
@@ -234,15 +253,18 @@ int priqueue_remove(priqueue_t *q, void *ptr)
  */
 void *priqueue_remove_at(priqueue_t *q, int index)
 {
-	if(index > (q->size-1)){
+	if(index > (q->size-1))
+	{
 		return NULL;
 	}
-	if(index < 0){
+	if(index < 0)
+	{
 		return NULL;
 	}
 	Node* temp1 = q->head;
 	void* data;
-	if(index == 0){
+	if(index == 0)
+	{
 		q->head = temp1->next;
 		data = temp1->data;
 		free(temp1);
@@ -251,7 +273,8 @@ void *priqueue_remove_at(priqueue_t *q, int index)
 	}
 	int i;
 	Node * temp2 = temp1->next;
-	for(i = 0 ; i < index - 1 ; i++){
+	for(i = 0 ; i < index - 1 ; i++)
+	{
 		temp1 = temp1->next;
 		temp2 = temp2->next;
 	}
@@ -285,7 +308,8 @@ void priqueue_destroy(priqueue_t *q)
 {
 	Node* temp1 = q->head;
 	Node* temp2 = q->head;
-	while(temp1 != NULL){
+	while(temp1 != NULL)
+	{
 		temp1 = temp1->next;
 		free(temp2);
 		temp2 = temp1;
